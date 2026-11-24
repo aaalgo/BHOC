@@ -114,13 +114,18 @@ def main(argv=None):
     if len(paths) > 1 or (resume and len(paths) != 1) or any(arg.startswith("-") for arg in paths):
         print(USAGE, file=sys.stderr)
         return 2
-    session_id = None if resume else new_id()
-    path = Path(paths[0]) if paths else Path("bhoc-sessions") / f"{session_id}.json"
+    session_id = new_id()
+    default_path = Path("bhoc-sessions") / f"{session_id}.json"
+    path = Path(paths[0]) if paths else default_path
     try:
         if resume:
             require(path.is_file(), "占案文件不存在或不是普通文件")
-            with CaseFile(path) as file:
-                case = Case(file, file.read())
+            data = CaseFile(path).read()
+            data["session"]["id"] = session_id
+            default_path.parent.mkdir(parents=True, exist_ok=True)
+            with CaseFile(default_path) as file:
+                file.write(data, create=True)
+                case = Case(file, data)
                 ReadingApp(case, resume=True, initialize=len(case.data["journal"]) == 1).run()
         else:
             require(not (path.exists() or path.is_symlink()), "占案文件已存在，请使用 bhoc resume 续案")

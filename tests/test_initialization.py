@@ -1,4 +1,5 @@
 import json
+from contextlib import chdir
 from copy import deepcopy
 from io import BytesIO
 from pathlib import Path
@@ -7,7 +8,7 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import patch
 
 from bhoc.ai import INITIALIZE, initialize
-from bhoc.cli import load_schemas
+from bhoc.cli import load_schemas, main
 from bhoc.session import Case, CaseFile, new_id
 from bhoc.ui import ReadingApp
 
@@ -56,6 +57,22 @@ class FirstCommitTest(IsolatedAsyncioTestCase):
             await self.run_initialization(self.candidate)
         self.assertEqual(self.file.path.read_bytes(), self.initial_bytes)
         self.assertEqual(len(self.case.stack), 1)
+
+    def test_cli_resume_creates_independent_session(self):
+        def save_first_commit():
+            resumed, = app.call_args.args
+            self.assertEqual(resumed.file.path.parent, self.file.path.parent / "bhoc-sessions")
+            self.assertNotEqual(resumed.stamp[0], self.case.stamp[0])
+            self.assertEqual(resumed.data["journal"], self.case.data["journal"])
+            self.assertEqual(app.call_args.kwargs, {"resume": True, "initialize": True})
+            resumed.confirm(resumed.stamp, self.candidate)
+            self.assertEqual(resumed.file.read()["session"]["stack"][-1]["state"], self.candidate)
+
+        with chdir(self.file.path.parent), patch("bhoc.cli.ReadingApp") as app:
+            app.return_value.run.side_effect = save_first_commit
+            self.assertEqual(main(["resume", str(self.file.path)]), 0)
+        app.return_value.run.assert_called_once()
+        self.assertEqual(self.file.path.read_bytes(), self.initial_bytes)
 
     def test_search_and_json_conversion_use_separate_models(self):
         items = "1. 二爻 · 假设 · 尚待查证的进展"
