@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bhoc"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["textual>=8.2,<9"]
+
+[project.scripts]
+bhoc = "bhoc.cli:main"
+
+[tool.setuptools]
+packages = ["bhoc"]
+
+[tool.setuptools.package-data]
+bhoc = ["*.md", "schemas/*.md"]
